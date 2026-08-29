@@ -7,6 +7,11 @@
     "userInterfaceStyle": "light",
     "android": {
       "package": "com.rizweebrother.chickenshop"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bbd368c0-9bf2-4781-a7a2-c03e07de1d25"
+      }
     }
   }
 }
