@@ -21,12 +21,17 @@ const PRODUCTS = [
 
 const MAX_WEIGHT = 50;
 
+const WHATSAPP_NUMBER = "923363299194";
+const CALL_NUMBER = "+923363299194";
+
 export default function App() {
   const [quantities, setQuantities] = useState(() => {
     const initial = {};
+
     PRODUCTS.forEach((product) => {
       initial[product.name] = 0;
     });
+
     return initial;
   });
 
@@ -108,10 +113,16 @@ export default function App() {
     const encodedMessage = encodeURIComponent(message);
 
     const whatsappUrl =
-      "whatsapp://send?text=" + encodedMessage;
+      "whatsapp://send?phone=" +
+      WHATSAPP_NUMBER +
+      "&text=" +
+      encodedMessage;
 
     const webUrl =
-      "https://wa.me/?text=" + encodedMessage;
+      "https://wa.me/" +
+      WHATSAPP_NUMBER +
+      "?text=" +
+      encodedMessage;
 
     try {
       const supported = await Linking.canOpenURL(whatsappUrl);
@@ -228,17 +239,7 @@ export default function App() {
   };
 
   const callShop = async () => {
-    const shopNumber = "PUT_SHOP_PHONE_NUMBER_HERE";
-
-    if (shopNumber === "PUT_SHOP_PHONE_NUMBER_HERE") {
-      Alert.alert(
-        "Call Shop",
-        "Shop ka phone number abhi app mein add nahi kiya gaya."
-      );
-      return;
-    }
-
-    const phoneUrl = "tel:" + shopNumber;
+    const phoneUrl = "tel:" + CALL_NUMBER;
 
     try {
       const supported = await Linking.canOpenURL(phoneUrl);
