@@ -109,40 +109,18 @@ export default function App() {
     );
   };
 
+  // Direct WhatsApp web link
   const openWhatsApp = async (message) => {
     const encodedMessage = encodeURIComponent(message);
 
-    const whatsappUrl =
-      "whatsapp://send?phone=" +
-      WHATSAPP_NUMBER +
-      "&text=" +
-      encodedMessage;
-
-    const webUrl =
+    const url =
       "https://wa.me/" +
       WHATSAPP_NUMBER +
       "?text=" +
       encodedMessage;
 
     try {
-      const supported = await Linking.canOpenURL(whatsappUrl);
-
-      if (supported) {
-        await Linking.openURL(whatsappUrl);
-        return;
-      }
-
-      const webSupported = await Linking.canOpenURL(webUrl);
-
-      if (webSupported) {
-        await Linking.openURL(webUrl);
-        return;
-      }
-
-      Alert.alert(
-        "WhatsApp",
-        "WhatsApp open nahi ho raha. Please WhatsApp install/check karein."
-      );
+      await Linking.openURL(url);
     } catch (error) {
       Alert.alert(
         "WhatsApp",
@@ -242,16 +220,7 @@ export default function App() {
     const phoneUrl = "tel:" + CALL_NUMBER;
 
     try {
-      const supported = await Linking.canOpenURL(phoneUrl);
-
-      if (supported) {
-        await Linking.openURL(phoneUrl);
-      } else {
-        Alert.alert(
-          "Call",
-          "Phone calling is device par available nahi hai."
-        );
-      }
+      await Linking.openURL(phoneUrl);
     } catch (error) {
       Alert.alert(
         "Call",
@@ -266,6 +235,7 @@ export default function App() {
         style={styles.scroll}
         contentContainerStyle={styles.container}
       >
+        {/* Islamic Header */}
         <View style={styles.islamicHeader}>
           <Text style={styles.bismillah}>
             بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ
@@ -276,6 +246,7 @@ export default function App() {
           </Text>
         </View>
 
+        {/* Shop Header */}
         <View style={styles.shopHeader}>
           <Text style={styles.shopEmoji}>🍗</Text>
 
@@ -288,6 +259,7 @@ export default function App() {
           </Text>
         </View>
 
+        {/* Products */}
         <Text style={styles.sectionTitle}>
           🍗 Chicken Products
         </Text>
@@ -340,6 +312,7 @@ export default function App() {
           </View>
         ))}
 
+        {/* Total */}
         <View style={styles.totalCard}>
           <Text style={styles.totalWeight}>
             Total Weight: {totalWeight} / {MAX_WEIGHT} kg
@@ -350,6 +323,7 @@ export default function App() {
           </Text>
         </View>
 
+        {/* Customer Information */}
         <Text style={styles.sectionTitle}>
           👤 Customer Information
         </Text>
@@ -380,6 +354,7 @@ export default function App() {
           multiline
         />
 
+        {/* Location */}
         <TouchableOpacity
           style={styles.locationButton}
           onPress={requestLocation}
@@ -389,6 +364,7 @@ export default function App() {
           </Text>
         </TouchableOpacity>
 
+        {/* WhatsApp Order */}
         <TouchableOpacity
           style={styles.whatsappButton}
           onPress={sendOrder}
@@ -398,6 +374,7 @@ export default function App() {
           </Text>
         </TouchableOpacity>
 
+        {/* Call */}
         <TouchableOpacity
           style={styles.callButton}
           onPress={callShop}
@@ -407,6 +384,7 @@ export default function App() {
           </Text>
         </TouchableOpacity>
 
+        {/* Clear */}
         <TouchableOpacity
           style={styles.clearButton}
           onPress={clearOrder}
@@ -416,6 +394,7 @@ export default function App() {
           </Text>
         </TouchableOpacity>
 
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Rizwee Brother Chicken Shop
