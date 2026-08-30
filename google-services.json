@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "452814450510",
+    "firebase_url": "https://rizwee-brothers-chicken-shop-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "rizwee-brothers-chicken-shop",
+    "storage_bucket": "rizwee-brothers-chicken-shop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452814450510:android:13d1cf125d9a6719d4381f",
+        "android_client_info": {
+          "package_name": "com.rizweebrother.chickenshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCo6ITJxCWLF4TP_lQlZRt-YEMwF_hoiDo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
