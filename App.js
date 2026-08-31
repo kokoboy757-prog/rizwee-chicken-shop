@@ -8,26 +8,15 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  ActivityIndicator,
 } from "react-native";
-import { initializeApp } from "firebase/app";
-import {
-  getDatabase,
-  ref,
-  onValue,
-  set,
-  update,
-  remove,
-} from "firebase/database";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from "firebase/auth";
 
-// ======================================================
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, get } from "firebase/database";
+
+// ===============================
 // FIREBASE CONFIG
-// ======================================================
+// ===============================
 
 const firebaseConfig = {
   apiKey: "AIzaSyCo6ITJxCWLF4TP_lQlZRt-YEMwF_hoiDo",
@@ -42,196 +31,188 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const database = getDatabase(firebaseApp);
-const auth = getAuth(firebaseApp);
 
-// ======================================================
+// ===============================
 // DEFAULT PRODUCTS
-// ======================================================
+// Used only if Firebase data
+// cannot be loaded.
+// ===============================
 
 const DEFAULT_PRODUCTS = [
-  { id: "whole-chicken", name: "Whole Chicken", price: 600 },
-  { id: "chicken-breast", name: "Chicken Breast", price: 750 },
-  { id: "chicken-leg", name: "Chicken Leg", price: 700 },
-  { id: "chicken-wings", name: "Chicken Wings", price: 550 },
-  { id: "chicken-thigh", name: "Chicken Thigh", price: 700 },
-  { id: "boneless-chicken", name: "Boneless Chicken", price: 800 },
+  { id: "whole_chicken", name: "Whole Chicken", price: 600 },
+  { id: "chicken_breast", name: "Chicken Breast", price: 750 },
+  { id: "chicken_leg", name: "Chicken Leg", price: 700 },
+  { id: "chicken_wings", name: "Chicken Wings", price: 550 },
+  { id: "chicken_thigh", name: "Chicken Thigh", price: 700 },
+  { id: "boneless_chicken", name: "Boneless Chicken", price: 800 },
 ];
-
-const DEFAULT_SETTINGS = {
-  whatsappNumber: "923363299194",
-  callNumber: "+923363299194",
-};
 
 const MAX_WEIGHT = 50;
 
-// ======================================================
+const DEFAULT_WHATSAPP_NUMBER = "923363299194";
+const DEFAULT_CALL_NUMBER = "923363299194";
+
+// ===============================
+// HELPER
+// ===============================
+
+const formatProductName = (id) => {
+  return String(id)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+// ===============================
 // APP
-// ======================================================
+// ===============================
 
 export default function App() {
-  const [products, setProducts] = useState(DEFAULT_PRODUCTS);
-
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-
+  const [products, setProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
+
+  const [whatsappNumber, setWhatsappNumber] = useState(
+    DEFAULT_WHATSAPP_NUMBER
+  );
+
+  const [callNumber, setCallNumber] = useState(
+    DEFAULT_CALL_NUMBER
+  );
+
+  const [loading, setLoading] = useState(true);
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  const [user, setUser] = useState(null);
-
-  const [adminMode, setAdminMode] = useState(false);
-
-  const [loading, setLoading] = useState(true);
-
-  // ====================================================
-  // ADMIN LOGIN FIELDS
-  // ====================================================
-
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-
-  // ====================================================
-  // NEW PRODUCT FIELDS
-  // ====================================================
-
-  const [newProductName, setNewProductName] = useState("");
-  const [newProductPrice, setNewProductPrice] = useState("");
-
-  // ====================================================
-  // FIREBASE AUTH
-  // ====================================================
+  // ===============================
+  // LOAD FIREBASE DATA
+  // ===============================
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
-    return unsubscribe;
+    loadFirebaseData();
   }, []);
 
-  // ====================================================
-  // LOAD PRODUCTS FROM FIREBASE
-  // ====================================================
+  const loadFirebaseData = async () => {
+    try {
+      setLoading(true);
 
-  useEffect(() => {
-    const productsRef = ref(database, "products");
+      // -------------------------------
+      // PRODUCTS
+      // -------------------------------
 
-    const unsubscribe = onValue(
-      productsRef,
-      (snapshot) => {
-        const data = snapshot.val();
+      const productsSnapshot = await get(
+        ref(database, "products")
+      );
 
-        if (data) {
-          const firebaseProducts = Object.keys(data).map((id) => ({
-            id,
-            name: data[id].name || "",
-            price: Number(data[id].price || 0),
-          }));
+      if (productsSnapshot.exists()) {
+        const firebaseProducts = productsSnapshot.val();
 
-          setProducts(firebaseProducts);
+        const productList = Object.entries(
+          firebaseProducts
+        ).map(([id, value]) => ({
+          id,
+          name: formatProductName(id),
+          price: Number(value) || 0,
+        }));
 
-          const initialQuantities = {};
+        setProducts(productList);
 
-          firebaseProducts.forEach((product) => {
-            initialQuantities[product.id] = 0;
-          });
+        const initialQuantities = {};
 
-          setQuantities(initialQuantities);
-        } else {
-          // If products do not exist yet, create defaults.
-          const defaultObject = {};
+        productList.forEach((product) => {
+          initialQuantities[product.id] = 0;
+        });
 
-          DEFAULT_PRODUCTS.forEach((product) => {
-            defaultObject[product.id] = {
-              name: product.name,
-              price: product.price,
-            };
-          });
+        setQuantities(initialQuantities);
+      } else {
+        setProducts(DEFAULT_PRODUCTS);
 
-          set(productsRef, defaultObject);
+        const initialQuantities = {};
 
-          setProducts(DEFAULT_PRODUCTS);
+        DEFAULT_PRODUCTS.forEach((product) => {
+          initialQuantities[product.id] = 0;
+        });
 
-          const initialQuantities = {};
+        setQuantities(initialQuantities);
+      }
 
-          DEFAULT_PRODUCTS.forEach((product) => {
-            initialQuantities[product.id] = 0;
-          });
+      // -------------------------------
+      // SETTINGS
+      // -------------------------------
 
-          setQuantities(initialQuantities);
+      const settingsSnapshot = await get(
+        ref(database, "settings")
+      );
+
+      if (settingsSnapshot.exists()) {
+        const settings = settingsSnapshot.val();
+
+        if (settings.whatsapp_number) {
+          setWhatsappNumber(
+            String(settings.whatsapp_number)
+          );
         }
 
-        setLoading(false);
-      },
-      (error) => {
-        console.log("Products error:", error);
-        setLoading(false);
-      }
-    );
-
-    return unsubscribe;
-  }, []);
-
-  // ====================================================
-  // LOAD SETTINGS FROM FIREBASE
-  // ====================================================
-
-  useEffect(() => {
-    const settingsRef = ref(database, "settings");
-
-    const unsubscribe = onValue(
-      settingsRef,
-      (snapshot) => {
-        const data = snapshot.val();
-
-        if (data) {
-          setSettings({
-            whatsappNumber:
-              data.whatsappNumber || DEFAULT_SETTINGS.whatsappNumber,
-
-            callNumber:
-              data.callNumber || DEFAULT_SETTINGS.callNumber,
-          });
-        } else {
-          set(settingsRef, DEFAULT_SETTINGS);
+        if (settings.call_number) {
+          setCallNumber(
+            String(settings.call_number)
+          );
         }
-      },
-      (error) => {
-        console.log("Settings error:", error);
       }
-    );
+    } catch (error) {
+      console.log("Firebase error:", error);
 
-    return unsubscribe;
-  }, []);
+      Alert.alert(
+        "Connection",
+        "Firebase data load nahi ho saka. Default shop data use kiya ja raha hai."
+      );
 
-  // ====================================================
+      setProducts(DEFAULT_PRODUCTS);
+
+      const initialQuantities = {};
+
+      DEFAULT_PRODUCTS.forEach((product) => {
+        initialQuantities[product.id] = 0;
+      });
+
+      setQuantities(initialQuantities);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================
   // TOTAL WEIGHT
-  // ====================================================
+  // ===============================
 
   const totalWeight = products.reduce((total, product) => {
-    return total + Number(quantities[product.id] || 0);
+    return (
+      total +
+      Number(quantities[product.id] || 0)
+    );
   }, 0);
 
-  // ====================================================
+  // ===============================
   // TOTAL AMOUNT
-  // ====================================================
+  // ===============================
 
   const totalAmount = products.reduce((total, product) => {
     return (
       total +
-      Number(quantities[product.id] || 0) * Number(product.price || 0)
+      Number(quantities[product.id] || 0) *
+        Number(product.price || 0)
     );
   }, 0);
 
-  // ====================================================
+  // ===============================
   // CHANGE QUANTITY
-  // ====================================================
+  // ===============================
 
   const changeQuantity = (productId, amount) => {
     setQuantities((previous) => {
-      const current = Number(previous[productId] || 0);
+      const current = Number(
+        previous[productId] || 0
+      );
 
       const next = current + amount;
 
@@ -239,7 +220,8 @@ export default function App() {
         return previous;
       }
 
-      const newTotalWeight = totalWeight - current + next;
+      const newTotalWeight =
+        totalWeight - current + next;
 
       if (newTotalWeight > MAX_WEIGHT) {
         Alert.alert(
@@ -257,17 +239,17 @@ export default function App() {
     });
   };
 
-  // ====================================================
+  // ===============================
   // ADD TO CART
-  // ====================================================
+  // ===============================
 
   const addToCart = (productId) => {
     changeQuantity(productId, 1);
   };
 
-  // ====================================================
+  // ===============================
   // CLEAR ORDER
-  // ====================================================
+  // ===============================
 
   const clearOrder = () => {
     Alert.alert(
@@ -278,11 +260,9 @@ export default function App() {
           text: "Cancel",
           style: "cancel",
         },
-
         {
           text: "Clear",
           style: "destructive",
-
           onPress: () => {
             const emptyQuantities = {};
 
@@ -291,7 +271,6 @@ export default function App() {
             });
 
             setQuantities(emptyQuantities);
-
             setCustomerName("");
             setPhone("");
             setAddress("");
@@ -301,20 +280,17 @@ export default function App() {
     );
   };
 
-  // ====================================================
+  // ===============================
   // OPEN WHATSAPP
-  // ====================================================
+  // ===============================
 
   const openWhatsApp = async (message) => {
-    const number = String(settings.whatsappNumber || "")
-      .replace(/\s/g, "")
-      .replace(/^\+/, "");
-
-    const encodedMessage = encodeURIComponent(message);
+    const encodedMessage =
+      encodeURIComponent(message);
 
     const url =
       "https://wa.me/" +
-      number +
+      whatsappNumber +
       "?text=" +
       encodedMessage;
 
@@ -328,9 +304,9 @@ export default function App() {
     }
   };
 
-  // ====================================================
+  // ===============================
   // REQUEST LOCATION
-  // ====================================================
+  // ===============================
 
   const requestLocation = () => {
     const message =
@@ -339,9 +315,9 @@ export default function App() {
     openWhatsApp(message);
   };
 
-  // ====================================================
+  // ===============================
   // SEND ORDER
-  // ====================================================
+  // ===============================
 
   const sendOrder = () => {
     if (totalWeight <= 0) {
@@ -349,7 +325,6 @@ export default function App() {
         "Order Empty",
         "Please pehle chicken select karein."
       );
-
       return;
     }
 
@@ -358,7 +333,6 @@ export default function App() {
         "Customer Name",
         "Please customer name enter karein."
       );
-
       return;
     }
 
@@ -367,7 +341,6 @@ export default function App() {
         "Phone Number",
         "Please phone number enter karein."
       );
-
       return;
     }
 
@@ -376,7 +349,6 @@ export default function App() {
         "Delivery Address",
         "Please delivery address enter karein."
       );
-
       return;
     }
 
@@ -429,15 +401,12 @@ export default function App() {
     openWhatsApp(message);
   };
 
-  // ====================================================
+  // ===============================
   // CALL SHOP
-  // ====================================================
+  // ===============================
 
   const callShop = async () => {
-    const phoneNumber = String(settings.callNumber || "")
-      .replace(/\s/g, "");
-
-    const phoneUrl = "tel:" + phoneNumber;
+    const phoneUrl = "tel:" + callNumber;
 
     try {
       await Linking.openURL(phoneUrl);
@@ -449,563 +418,37 @@ export default function App() {
     }
   };
 
-  // ====================================================
-  // ADMIN LOGIN
-  // ====================================================
-
-  const adminLogin = async () => {
-    if (!adminEmail.trim()) {
-      Alert.alert(
-        "Admin Login",
-        "Please admin email enter karein."
-      );
-
-      return;
-    }
-
-    if (!adminPassword) {
-      Alert.alert(
-        "Admin Login",
-        "Please password enter karein."
-      );
-
-      return;
-    }
-
-    try {
-      const result =
-        await signInWithEmailAndPassword(
-          auth,
-          adminEmail.trim(),
-          adminPassword
-        );
-
-      // Only your Firebase UID can use admin management.
-      if (
-        result.user.uid !==
-        "vCG8IaUJl0WJjCsP2JsuJdoF0wk1"
-      ) {
-        await signOut(auth);
-
-        Alert.alert(
-          "Access Denied",
-          "Ye account admin nahi hai."
-        );
-
-        return;
-      }
-
-      setAdminMode(true);
-
-      setAdminPassword("");
-
-      Alert.alert(
-        "Admin",
-        "Admin login successful."
-      );
-    } catch (error) {
-      console.log(error);
-
-      Alert.alert(
-        "Admin Login Failed",
-        "Email ya password ghalat hai."
-      );
-    }
-  };
-
-  // ====================================================
-  // ADMIN LOGOUT
-  // ====================================================
-
-  const adminLogout = async () => {
-    try {
-      await signOut(auth);
-
-      setAdminMode(false);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  // ====================================================
-  // ADD PRODUCT
-  // ====================================================
-
-  const addProduct = async () => {
-    if (!user) {
-      Alert.alert(
-        "Admin",
-        "Please pehle admin login karein."
-      );
-
-      return;
-    }
-
-    if (
-      user.uid !==
-      "vCG8IaUJl0WJjCsP2JsuJdoF0wk1"
-    ) {
-      Alert.alert(
-        "Access Denied",
-        "Aap admin nahi hain."
-      );
-
-      return;
-    }
-
-    const name = newProductName.trim();
-
-    const price = Number(
-      newProductPrice.trim()
-    );
-
-    if (!name) {
-      Alert.alert(
-        "Product",
-        "Product name enter karein."
-      );
-
-      return;
-    }
-
-    if (!price || price <= 0) {
-      Alert.alert(
-        "Price",
-        "Valid price enter karein."
-      );
-
-      return;
-    }
-
-    const id =
-      name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "") +
-      "-" +
-      Date.now();
-
-    try {
-      await set(
-        ref(database, "products/" + id),
-        {
-          name,
-          price,
-        }
-      );
-
-      setNewProductName("");
-      setNewProductPrice("");
-
-      Alert.alert(
-        "Success",
-        "Product successfully add ho gaya."
-      );
-    } catch (error) {
-      console.log(error);
-
-      Alert.alert(
-        "Error",
-        "Product add nahi ho saka."
-      );
-    }
-  };
-
-  // ====================================================
-  // UPDATE PRODUCT
-  // ====================================================
-
-  const editProduct = (product) => {
-    if (!user) {
-      Alert.alert(
-        "Admin",
-        "Please pehle admin login karein."
-      );
-
-      return;
-    }
-
-    Alert.prompt(
-      "Edit Product Name",
-      "Product name:",
-      async (newName) => {
-        if (!newName || !newName.trim()) {
-          return;
-        }
-
-        Alert.prompt(
-          "Edit Price",
-          "Price per kg:",
-          async (newPriceText) => {
-            const newPrice =
-              Number(newPriceText);
-
-            if (!newPrice || newPrice <= 0) {
-              Alert.alert(
-                "Price",
-                "Valid price enter karein."
-              );
-
-              return;
-            }
-
-            try {
-              await update(
-                ref(
-                  database,
-                  "products/" + product.id
-                ),
-                {
-                  name: newName.trim(),
-                  price: newPrice,
-                }
-              );
-
-              Alert.alert(
-                "Success",
-                "Product update ho gaya."
-              );
-            } catch (error) {
-              console.log(error);
-
-              Alert.alert(
-                "Error",
-                "Product update nahi ho saka."
-              );
-            }
-          },
-          "plain-text",
-          String(product.price)
-        );
-      },
-      "plain-text",
-      product.name
-    );
-  };
-
-  // ====================================================
-  // DELETE PRODUCT
-  // ====================================================
-
-  const deleteProduct = (product) => {
-    if (!user) {
-      Alert.alert(
-        "Admin",
-        "Please pehle admin login karein."
-      );
-
-      return;
-    }
-
-    Alert.alert(
-      "Delete Product",
-      "Kya aap " +
-        product.name +
-        " delete karna chahte hain?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-
-        {
-          text: "Delete",
-          style: "destructive",
-
-          onPress: async () => {
-            try {
-              await remove(
-                ref(
-                  database,
-                  "products/" + product.id
-                )
-              );
-
-              Alert.alert(
-                "Deleted",
-                "Product delete ho gaya."
-              );
-            } catch (error) {
-              console.log(error);
-
-              Alert.alert(
-                "Error",
-                "Product delete nahi ho saka."
-              );
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // ====================================================
-  // CHANGE WHATSAPP NUMBER
-  // ====================================================
-
-  const changeWhatsAppNumber = () => {
-    if (!user) {
-      return;
-    }
-
-    Alert.prompt(
-      "WhatsApp Number",
-      "WhatsApp number country code ke sath enter karein.\nExample: 923363299194",
-      async (newNumber) => {
-        if (!newNumber || !newNumber.trim()) {
-          return;
-        }
-
-        const cleanNumber =
-          newNumber
-            .replace(/\s/g, "")
-            .replace(/^\+/, "");
-
-        try {
-          await update(
-            ref(database, "settings"),
-            {
-              whatsappNumber: cleanNumber,
-            }
-          );
-
-          Alert.alert(
-            "Success",
-            "WhatsApp number change ho gaya."
-          );
-        } catch (error) {
-          console.log(error);
-
-          Alert.alert(
-            "Error",
-            "WhatsApp number update nahi ho saka."
-          );
-        }
-      },
-      "plain-text",
-      settings.whatsappNumber
-    );
-  };
-
-  // ====================================================
-  // CHANGE CALL NUMBER
-  // ====================================================
-
-  const changeCallNumber = () => {
-    if (!user) {
-      return;
-    }
-
-    Alert.prompt(
-      "Call Number",
-      "Call number enter karein.\nExample: +923363299194",
-      async (newNumber) => {
-        if (!newNumber || !newNumber.trim()) {
-          return;
-        }
-
-        try {
-          await update(
-            ref(database, "settings"),
-            {
-              callNumber: newNumber.trim(),
-            }
-          );
-
-          Alert.alert(
-            "Success",
-            "Call number change ho gaya."
-          );
-        } catch (error) {
-          console.log(error);
-
-          Alert.alert(
-            "Error",
-            "Call number update nahi ho saka."
-          );
-        }
-      },
-      "plain-text",
-      settings.callNumber
-    );
-  };
-
-  // ====================================================
-  // LOADING
-  // ====================================================
+  // ===============================
+  // LOADING SCREEN
+  // ===============================
 
   if (loading) {
     return (
       <View style={styles.loadingScreen}>
+        <Text style={styles.loadingEmoji}>
+          🍗
+        </Text>
+
+        <Text style={styles.loadingTitle}>
+          Rizwee Brother Chicken Shop
+        </Text>
+
+        <ActivityIndicator
+          size="large"
+          color="#0f6b3a"
+          style={{ marginTop: 20 }}
+        />
+
         <Text style={styles.loadingText}>
-          Loading Rizwee Brother Chicken Shop...
+          Loading shop data...
         </Text>
       </View>
     );
   }
 
-  // ====================================================
-  // ADMIN SCREEN
-  // ====================================================
-
-  if (adminMode) {
-    return (
-      <View style={styles.main}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.container}
-        >
-          <View style={styles.adminHeader}>
-            <Text style={styles.adminTitle}>
-              🔐 ADMIN PANEL
-            </Text>
-
-            <Text style={styles.adminSubtitle}>
-              Rizwee Brother Chicken Shop
-            </Text>
-          </View>
-
-          {/* Products Management */}
-
-          <Text style={styles.sectionTitle}>
-            🛒 Product Management
-          </Text>
-
-          {products.map((product) => (
-            <View
-              style={styles.adminProductCard}
-              key={product.id}
-            >
-              <View style={styles.adminProductInfo}>
-                <Text style={styles.adminProductName}>
-                  {product.name}
-                </Text>
-
-                <Text style={styles.adminProductPrice}>
-                  Rs. {product.price}/kg
-                </Text>
-              </View>
-
-              <View style={styles.adminButtons}>
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() =>
-                    editProduct(product)
-                  }
-                >
-                  <Text style={styles.adminButtonText}>
-                    ✏️ EDIT
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() =>
-                    deleteProduct(product)
-                  }
-                >
-                  <Text style={styles.adminButtonText}>
-                    🗑️ DELETE
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-
-          {/* Add Product */}
-
-          <View style={styles.adminBox}>
-            <Text style={styles.adminBoxTitle}>
-              ➕ Add New Product
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Product Name"
-              placeholderTextColor="#777"
-              value={newProductName}
-              onChangeText={setNewProductName}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="Price per kg"
-              placeholderTextColor="#777"
-              keyboardType="numeric"
-              value={newProductPrice}
-              onChangeText={setNewProductPrice}
-            />
-
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={addProduct}
-            >
-              <Text style={styles.saveButtonText}>
-                💾 ADD PRODUCT
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Settings */}
-
-          <Text style={styles.sectionTitle}>
-            ⚙️ Shop Settings
-          </Text>
-
-          <View style={styles.adminBox}>
-            <Text style={styles.settingLabel}>
-              WhatsApp Number
-            </Text>
-
-            <Text style={styles.settingValue}>
-              {settings.whatsappNumber}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={changeWhatsAppNumber}
-            >
-              <Text style={styles.saveButtonText}>
-                📱 CHANGE WHATSAPP NUMBER
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.settingLabel}>
-              Call Number
-            </Text>
-
-            <Text style={styles.settingValue}>
-              {settings.callNumber}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={changeCallNumber}
-            >
-              <Text style={styles.saveButtonText}>
-                📞 CHANGE CALL NUMBER
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Logout */}
-
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={adminLogout}
-          >
-            <Text style={styles.logoutText}>
-              🚪 ADMIN LOGOUT
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ====================================================
-  // MAIN CUSTOMER SCREEN
-  // ====================================================
+  // ===============================
+  // MAIN UI
+  // ===============================
 
   return (
     <View style={styles.main}>
@@ -1064,7 +507,10 @@ export default function App() {
               <TouchableOpacity
                 style={styles.minusButton}
                 onPress={() =>
-                  changeQuantity(product.id, -1)
+                  changeQuantity(
+                    product.id,
+                    -1
+                  )
                 }
               >
                 <Text style={styles.buttonText}>
@@ -1079,7 +525,10 @@ export default function App() {
               <TouchableOpacity
                 style={styles.plusButton}
                 onPress={() =>
-                  changeQuantity(product.id, 1)
+                  changeQuantity(
+                    product.id,
+                    1
+                  )
                 }
               >
                 <Text style={styles.buttonText}>
@@ -1105,7 +554,8 @@ export default function App() {
 
         <View style={styles.totalCard}>
           <Text style={styles.totalWeight}>
-            Total Weight: {totalWeight} / {MAX_WEIGHT} kg
+            Total Weight: {totalWeight} /{" "}
+            {MAX_WEIGHT} kg
           </Text>
 
           <Text style={styles.totalAmount}>
@@ -1192,42 +642,6 @@ export default function App() {
           </Text>
         </TouchableOpacity>
 
-        {/* Admin Login */}
-
-        <View style={styles.adminLoginBox}>
-          <Text style={styles.adminLoginTitle}>
-            🔐 Shop Admin
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Admin Email"
-            placeholderTextColor="#777"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={adminEmail}
-            onChangeText={setAdminEmail}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Admin Password"
-            placeholderTextColor="#777"
-            secureTextEntry
-            value={adminPassword}
-            onChangeText={setAdminPassword}
-          />
-
-          <TouchableOpacity
-            style={styles.adminLoginButton}
-            onPress={adminLogin}
-          >
-            <Text style={styles.adminLoginText}>
-              🔑 ADMIN LOGIN
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Footer */}
 
         <View style={styles.footer}>
@@ -1248,9 +662,9 @@ export default function App() {
   );
 }
 
-// ======================================================
+// ===============================
 // STYLES
-// ======================================================
+// ===============================
 
 const styles = StyleSheet.create({
   main: {
@@ -1269,16 +683,27 @@ const styles = StyleSheet.create({
 
   loadingScreen: {
     flex: 1,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ffffff",
-    padding: 20,
+    padding: 25,
+  },
+
+  loadingEmoji: {
+    fontSize: 60,
+  },
+
+  loadingTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    textAlign: "center",
+    marginTop: 12,
   },
 
   loadingText: {
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "center",
+    fontSize: 17,
+    color: "#666666",
+    marginTop: 15,
   },
 
   islamicHeader: {
@@ -1512,158 +937,6 @@ const styles = StyleSheet.create({
 
   clearText: {
     color: "#c62828",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  adminLoginBox: {
-    backgroundColor: "#eeeeee",
-    borderRadius: 20,
-    padding: 20,
-    marginTop: 25,
-  },
-
-  adminLoginTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    marginBottom: 15,
-  },
-
-  adminLoginButton: {
-    backgroundColor: "#6a1b9a",
-    borderRadius: 17,
-    padding: 18,
-    alignItems: "center",
-  },
-
-  adminLoginText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  adminHeader: {
-    backgroundColor: "#263238",
-    borderRadius: 20,
-    padding: 22,
-    alignItems: "center",
-    marginBottom: 20,
-  },
-
-  adminTitle: {
-    color: "#ffffff",
-    fontSize: 28,
-    fontWeight: "900",
-  },
-
-  adminSubtitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    marginTop: 8,
-  },
-
-  adminProductCard: {
-    backgroundColor: "#f4f4f4",
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 12,
-  },
-
-  adminProductInfo: {
-    marginBottom: 14,
-  },
-
-  adminProductName: {
-    fontSize: 22,
-    fontWeight: "900",
-  },
-
-  adminProductPrice: {
-    fontSize: 19,
-    color: "#c62828",
-    fontWeight: "700",
-    marginTop: 5,
-  },
-
-  adminButtons: {
-    flexDirection: "row",
-    gap: 10,
-  },
-
-  editButton: {
-    flex: 1,
-    backgroundColor: "#1976d2",
-    borderRadius: 14,
-    padding: 14,
-    alignItems: "center",
-  },
-
-  deleteButton: {
-    flex: 1,
-    backgroundColor: "#c62828",
-    borderRadius: 14,
-    padding: 14,
-    alignItems: "center",
-  },
-
-  adminButtonText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "900",
-  },
-
-  adminBox: {
-    backgroundColor: "#eeeeee",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-  },
-
-  adminBoxTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    marginBottom: 15,
-  },
-
-  saveButton: {
-    backgroundColor: "#0f6b3a",
-    borderRadius: 16,
-    padding: 17,
-    alignItems: "center",
-    marginBottom: 15,
-  },
-
-  saveButtonText: {
-    color: "#ffffff",
-    fontSize: 17,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-
-  settingLabel: {
-    fontSize: 17,
-    fontWeight: "700",
-    marginTop: 5,
-  },
-
-  settingValue: {
-    fontSize: 19,
-    fontWeight: "900",
-    marginTop: 5,
-    marginBottom: 12,
-  },
-
-  logoutButton: {
-    backgroundColor: "#b71c1c",
-    borderRadius: 17,
-    padding: 18,
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 30,
-  },
-
-  logoutText: {
-    color: "#ffffff",
     fontSize: 18,
     fontWeight: "900",
   },
